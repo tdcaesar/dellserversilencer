@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DellServerSilencer", "DellServerSilencer.csproj", "{44832E12-40CF-4F6E-9C98-266BD2898273}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DellServerSilencer", "DellServerSilencer\DellServerSilencer.csproj", "{44832E12-40CF-4F6E-9C98-266BD2898273}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
