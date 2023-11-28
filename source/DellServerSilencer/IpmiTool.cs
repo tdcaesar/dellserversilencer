@@ -7,6 +7,15 @@ namespace DellServerSilencer;
 
 public class IpmiTool
 {
+    private const string SettingsPathToIpmiTool = "";
+    private const string SettingsIpmiHost = "";
+    private const string SettingsIpmiUser = "";
+    private const string SettingsIpmiPassword = "";
+    private const int SettingsRetries = 3;
+    private const int SettingsInitialDelayInMs = 1000;
+    private const int SettingsDelayIncreaseFactor = 2;
+    private const Platform DefaultPlatform = Platform.Linux;
+    private const IpmiMode SettingsMode = IpmiMode.Local;
     private ILogger<Worker> _logger;
     
     public IpmiTool(ILogger<Worker> logger)
@@ -15,39 +24,42 @@ public class IpmiTool
     }
     private string GetPath()
     {
-        return string.IsNullOrWhiteSpace(_settings.PathToIpmiTool)
-            ? Settings.Platform switch
+        return string.IsNullOrWhiteSpace(SettingsPathToIpmiTool)
+            ? DefaultPlatform switch
             {
                 Platform.Linux => "/usr/bin/ipmitool",
                 Platform.Windows => @"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
                 _ => throw new ArgumentOutOfRangeException()
             }
-            : _settings.PathToIpmiTool;
+            : SettingsPathToIpmiTool;
     }
 
     private string GetArgs()
     {
-        return string.IsNullOrWhiteSpace(_settings.Mode)
-            ? Settings.Mode switch
+        return string.IsNullOrWhiteSpace(SettingsMode)
+            ? SettingsMode switch
             {
                 IpmiMode.Local => "",
-                IpmiMode.Remote => $"-I lanplus -H {_settings.IpmiHost} -U {_settings.IpmiUser} " 
-                                   + "-P {_settings.IpmiUser} {command}",
+                IpmiMode.Remote => $"-I lanplus -H {SettingsIpmiHost} -U {SettingsIpmiUser} " 
+                                   + $"-P {SettingsIpmiPassword}",
                 _ => throw new ArgumentOutOfRangeException()
             }
             : "";
     }
+
+    public record IpmiToolResult(bool Success, string Output);
+
     
     public async Task<string> Execute(string command, CancellationToken cancellationToken)
     {
-        int totalRetries = _settings.Retries;
+        int totalRetries = SettingsRetries;
         string toolPath = GetPath();
         string args = GetArgs();
 
         IEnumerable<TimeSpan> delay = Backoff.ExponentialBackoff(
-            TimeSpan.FromMilliseconds(_settings.InitialDelayInMs),
+            TimeSpan.FromMilliseconds(SettingsInitialDelayInMs),
             totalRetries,
-            _settings.DelayIncreaseFactor);
+            SettingsDelayIncreaseFactor);
 
         var process = new Process
         {
@@ -86,13 +98,24 @@ public class IpmiTool
         
         return policyExecutionResult.Result;
     }  
-    public int GetTemperatureReading(string sensorId, CancellationToken cancellationToken)
+    public async Task<int> GetTemperatureReading(string sensorId, CancellationToken cancellationToken)
     {
+        int temperatureReadingInt = 0;
+        string command = GetTemperatureReadingCommand(sensorId);
         var temperatureReading =
-            Tool.Execute("sdr type temperature | grep \"{sensorId}\" | cut -d\"|\" -f5 | cut -d\" \" -f2 >&1",
-                sensorId,
+            await Execute(command,
                 cancellationToken);
-        return (int)temperatureReading;
+
+        bool Valid = int.TryParse(temperatureReading, out temperatureReadingInt);
+
+        if (Valid)
+            return temperatureReadingInt;
+
+        throw new InvalidTemperatureReadingException(temperatureReading);
+    }
+    private string GetTemperatureReadingCommand(string sensorId)
+    {
+        return $"sdr type temperature | grep \"{sensorId}\" | cut -d\"|\" -f5 | cut -d\" \" -f2 >&1";
     }
 }
 
