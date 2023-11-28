@@ -1,5 +1,3 @@
-using static System.Runtime.InteropServices.JavaScript.JSType;
-
 namespace DellServerSilencer;
 
 public class Worker : BackgroundService
@@ -7,6 +5,8 @@ public class Worker : BackgroundService
     private const int DelayInterval = 1000;
     private const int CpuCount = 2;
     private const int MaxTemperature = 80;
+    private const int MaxFanSpeed = 100;
+    private const int MinFanSpeed = 10;
     private const int CPU1_OFFSET = 0;
     private const int CPU2_OFFSET = 8;
     private const int PCI_OFFSET = -5;
@@ -19,10 +19,10 @@ public class Worker : BackgroundService
     private FanControl FanControlMode = FanControl.Automatic;
     private IpmiTool Tool;
 
-    public Worker(ILogger<Worker> logger)
+    public Worker(ILogger<Worker> logger, Settings settings)
     {
         _logger = logger;
-        Tool = new(logger);
+        Tool = new(logger, settings);
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -63,6 +63,88 @@ public class Worker : BackgroundService
             
             await Task.Delay(DelayInterval, cancellationToken);
         }
+    }
+
+    public class FanSpeedSettings
+    {
+        public int[] Speeds { get; }
+
+        public FanSpeedSettings(int offset, int[] speeds)
+        {
+            Speeds = new int[8];
+
+            if (speeds.Length != 8)
+                throw new ArgumentException("Speeds must be 8 elements long", nameof(speeds));
+            
+            int PriorSpeed = 0;
+                        
+            for(int Index = 0; Index < speeds.Length; Index++)
+            {
+                int CurrentSpeed = speeds[Index];
+                if (CurrentSpeed < 0 || CurrentSpeed > 100)
+                    throw new ArgumentException("Speeds must be between 0 and 100", nameof(speeds));
+                if (CurrentSpeed < PriorSpeed)
+                    throw new ArgumentException("Speeds must be in ascending order", nameof(speeds));
+                PriorSpeed = CurrentSpeed;
+                Speeds[Index] = CurrentSpeed + offset;
+                if (Speeds[Index] > 100)
+                    Speeds[Index] = 100;
+            }
+        }
+    }
+    public class TemperatureThresholds
+    {
+        public int[] Thresholds { get; }
+
+        public TemperatureThresholds(int[] thresholds)
+        {
+            Thresholds = new int[8];
+            if (thresholds.Length != 8)
+                throw new ArgumentException("Thresholds must be 8 elements long", nameof(thresholds));
+            int PriorThreshold = 0; 
+            for(int Index = 0; Index < thresholds.Length; Index++)
+            {
+                int CurrentThreshold = thresholds[Index];
+                if (CurrentThreshold < 0 || CurrentThreshold > 100)
+                    throw new ArgumentException("Thresholds must be between 0 and 100", nameof(thresholds));
+                if (CurrentThreshold < PriorThreshold)
+                    throw new ArgumentException("Thresholds must be in ascending order", nameof(thresholds));
+                PriorThreshold = CurrentThreshold;
+                Thresholds[Index] = CurrentThreshold;
+            }
+        }
+    }
+    private int GetFanSpeed(TemperatureThresholds thresholds, FanSpeedSettings fanspeeds, int temperature, int offset)
+    {
+        int FanSpeed = 0;
+        if (temperature > MaxTemperature)
+            FanSpeed = MaxFanSpeed;
+        else if (temperature > thresholds.Thresholds[7])
+            FanSpeed = fanspeeds.Speeds[7] + offset;
+        else if (temperature > thresholds.Thresholds[6])
+            FanSpeed = fanspeeds.Speeds[6] + offset;
+        else if (temperature > thresholds.Thresholds[5])
+            FanSpeed = fanspeeds.Speeds[5] + offset;
+        else if (temperature > thresholds.Thresholds[4])
+            FanSpeed = fanspeeds.Speeds[4] + offset;
+        else if (temperature > thresholds.Thresholds[3])
+            FanSpeed = fanspeeds.Speeds[3] + offset;
+        else if (temperature > thresholds.Thresholds[2])
+            FanSpeed = fanspeeds.Speeds[2] + offset;
+        else if (temperature > thresholds.Thresholds[1])
+            FanSpeed = fanspeeds.Speeds[1] + offset;
+        else if (temperature > thresholds.Thresholds[0])
+            FanSpeed = fanspeeds.Speeds[0] + offset;
+        else
+            FanSpeed = MinFanSpeed;
+
+        if(FanSpeed > MaxFanSpeed)
+            return MaxFanSpeed;
+
+        if(FanSpeed < 0)
+            return MinFanSpeed; //TODO: Substitute with Error
+
+        return FanSpeed;
     }
 
     private int GetFanSpeedCpu(int cpuTemperature, int selectedCpuId, int InletOffset)
