@@ -1,4 +1,4 @@
-namespace DellServerSilencer;
+namespace DellServerSilencer.Ipmi;
 
 public enum IpmiMode
 {

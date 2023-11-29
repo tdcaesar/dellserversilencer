@@ -1,4 +1,4 @@
-namespace DellServerSilencer.FanControl;
+namespace DellServerSilencer.FanSpeed;
 
 public enum FanType
 {

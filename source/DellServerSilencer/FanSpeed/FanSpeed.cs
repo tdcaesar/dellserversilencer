@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DellServerSilencer;
+namespace DellServerSilencer.FanSpeed;
 
 public class FanSpeed
 {

@@ -1,4 +1,4 @@
-namespace DellServerSilencer;
+namespace DellServerSilencer.FanSpeed;
 
 public class FanSpeedRange
 {

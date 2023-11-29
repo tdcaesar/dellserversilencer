@@ -1,7 +1,13 @@
 using DellServerSilencer;
 
 IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services => { services.AddHostedService<Worker>(); })
+    .ConfigureServices(
+        (hostContext, services) =>
+    {
+        services.AddHostedService<Worker>();
+        services.Configure<Settings>(
+            hostContext.Configuration.GetSection("Settings"));
+    })
     .Build();
 
 host.Run();

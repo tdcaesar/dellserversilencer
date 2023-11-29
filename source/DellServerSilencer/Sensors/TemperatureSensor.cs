@@ -1,4 +1,4 @@
-namespace DellServerSilencer.TemperatureReading;
+namespace DellServerSilencer.Sensors;
 
 public enum TemperatureSensor
 {
