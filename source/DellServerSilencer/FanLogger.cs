@@ -10,10 +10,4 @@ public class FanLogger
     {
         _logger = logger;
     }
-    
-    public void LogDebug(string message)
-    {
-        _logger.LogDebug(message);
-    }
-
 }

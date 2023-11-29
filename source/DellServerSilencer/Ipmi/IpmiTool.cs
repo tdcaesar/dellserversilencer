@@ -5,20 +5,6 @@ using Polly.Contrib.WaitAndRetry;
 
 namespace DellServerSilencer;
 
-
-public class Settings
-{
-    public string PathToIpmiTool { get; } = "";
-    public string IpmiHost { get; } = "";
-    public string IpmiUser { get; } = "";
-    public string IpmiPassword { get; } = "";
-    public int Retries { get; } = 3;
-    public int InitialDelayInMs { get; } = 1000;
-    public int DelayIncreaseFactor { get; } = 2;
-    public Platform Platform { get; } = Platform.Linux;
-    public IpmiMode Mode { get; } = IpmiMode.Local;
-}
-
 public class IpmiTool
 {
     private ILogger<Worker> _logger;
@@ -50,9 +36,6 @@ public class IpmiTool
             _ => throw new ArgumentOutOfRangeException()
         };
     }
-
-    public record IpmiToolResult(bool Success, string Output);
-
     
     public async Task<string> Execute(string command, CancellationToken cancellationToken)
     {
@@ -97,7 +80,7 @@ public class IpmiTool
                     process.Start();
                     await process.WaitForExitAsync(token);
 
-                    return await process.StandardOutput.ReadToEndAsync();
+                    return await process.StandardOutput.ReadToEndAsync(cancellationToken);
                 }, cancellationToken);
         
         return policyExecutionResult.Result;
@@ -110,9 +93,9 @@ public class IpmiTool
             await Execute(command,
                 cancellationToken);
 
-        bool Valid = int.TryParse(temperatureReading, out temperatureReadingInt);
+        bool valid = int.TryParse(temperatureReading, out temperatureReadingInt);
 
-        if (Valid)
+        if (valid)
             return temperatureReadingInt;
 
         throw new InvalidTemperatureReadingException(temperatureReading);
@@ -121,16 +104,4 @@ public class IpmiTool
     {
         return $"sdr type temperature | grep \"{sensorId}\" | cut -d\"|\" -f5 | cut -d\" \" -f2 >&1";
     }
-}
-
-public enum Platform
-{
-    Linux,
-    Windows
-}
-
-public enum IpmiMode
-{
-    Local,
-    Remote
 }
